@@ -206,12 +206,42 @@ const writableDOM: writableDOMType = function writableDOM(
     }
   }
 
-  function evalScript(scriptElement: HTMLElement): void {
+  // TODO: could this whole fn be moved to reframed, and passed in instead of scriptLoadingDocument?
+  function evalScript(scriptElement: HTMLScriptElement): void {
     const clone = scriptLoadingDocument.importNode(
       scriptElement,
       true
     ) as HTMLScriptElement;
+
+    let origCurrentScriptDesc: PropertyDescriptor | undefined;
+    let documentPrototype: Document | undefined;
+
+    // document.currentScript is not set for type=module
+    if (scriptElement.type != "module"
+      //TODO: support external scripts as well, somehow - tricky because requires async cleanup
+      && !scriptElement.src) {
+      documentPrototype = Object.getPrototypeOf(Object.getPrototypeOf(scriptLoadingDocument));
+      origCurrentScriptDesc = Object.getOwnPropertyDescriptor(documentPrototype, 'currentScript');
+      assert(origCurrentScriptDesc !== undefined, 'document.currentScript is undefined!');
+
+      Object.defineProperty(documentPrototype, 'currentScript', {
+        get: () => scriptElement,
+        set: undefined,
+        enumerable: true,
+        configurable: true,
+      });
+    }
+
     scriptLoadingDocument.body.appendChild(clone);
+
+    // restore document.currentScript
+    if (origCurrentScriptDesc) {
+      const restoreCurrentScript = () => {
+        Object.defineProperty(documentPrototype, 'currentScript', origCurrentScriptDesc);
+      };
+      clone.addEventListener('load', restoreCurrentScript);
+      clone.addEventListener('error', restoreCurrentScript);
+    }
   }
 } as writableDOMType;
 
@@ -313,5 +343,16 @@ function isInlineHost(node: Node) {
     tagName === "STYLE"
   );
 }
+
+/**
+ * A generic assertion function.
+ *
+ * Typescript doesn't seem to consider `console.assert` to be an assertion function so we have this wrapper
+ * https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-7.html#assertion-functions
+ */
+function assert(value: boolean, message: string): asserts value {
+  console.assert(value, message);
+}
+
 
 export { writableDOM as default };
