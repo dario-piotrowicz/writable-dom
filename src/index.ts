@@ -183,7 +183,7 @@ const writableDOM: writableDOMType = function writableDOM(
             parentNode.appendChild(clone);
           }
           if (clone instanceof HTMLScriptElement) {
-            // restore type so the DOM doesn't look different from the original
+            //restore script.type so the DOM doesn't look different from the original
             if (originalScriptType === null) {
               clone.removeAttribute("type");
             } else {
@@ -217,14 +217,24 @@ const writableDOM: writableDOMType = function writableDOM(
     let documentPrototype: Document | undefined;
 
     // document.currentScript is not set for type=module
-    if (scriptElement.type != "module"
+    if (
+      scriptElement.type != "module" &&
       //TODO: support external scripts as well, somehow - tricky because requires async cleanup
-      && !scriptElement.src) {
-      documentPrototype = Object.getPrototypeOf(Object.getPrototypeOf(scriptLoadingDocument));
-      origCurrentScriptDesc = Object.getOwnPropertyDescriptor(documentPrototype, 'currentScript');
-      assert(origCurrentScriptDesc !== undefined, 'document.currentScript is undefined!');
+      !scriptElement.src
+    ) {
+      documentPrototype = Object.getPrototypeOf(
+        Object.getPrototypeOf(scriptLoadingDocument)
+      );
+      origCurrentScriptDesc = Object.getOwnPropertyDescriptor(
+        documentPrototype,
+        "currentScript"
+      );
+      assert(
+        origCurrentScriptDesc !== undefined,
+        "document.currentScript is undefined!"
+      );
 
-      Object.defineProperty(documentPrototype, 'currentScript', {
+      Object.defineProperty(documentPrototype, "currentScript", {
         get: () => scriptElement,
         set: undefined,
         enumerable: true,
@@ -232,15 +242,20 @@ const writableDOM: writableDOMType = function writableDOM(
       });
     }
 
-    scriptLoadingDocument.body.appendChild(clone);
+    //@ts-expect-error this is a bad hack, all of this should be moved to reframed
+    scriptLoadingDocument.unreframedBody.appendChild(clone);
 
     // restore document.currentScript
     if (origCurrentScriptDesc) {
       const restoreCurrentScript = () => {
-        Object.defineProperty(documentPrototype, 'currentScript', origCurrentScriptDesc);
+        Object.defineProperty(
+          documentPrototype,
+          "currentScript",
+          origCurrentScriptDesc
+        );
       };
-      clone.addEventListener('load', restoreCurrentScript);
-      clone.addEventListener('error', restoreCurrentScript);
+      clone.addEventListener("load", restoreCurrentScript);
+      clone.addEventListener("error", restoreCurrentScript);
     }
   }
 } as writableDOMType;
@@ -324,7 +339,10 @@ function appendInlineTextIfNeeded(
     if (inlineTextHostNode instanceof HTMLScriptElement) {
       const originalScriptType = inlineTextHostNode.getAttribute("type");
       inlineTextHostNode.type = "reframed-inert-script";
+
       inlineTextHostNode.appendChild(pendingText);
+
+      //restore original script.type
       if (originalScriptType === null) {
         inlineTextHostNode.removeAttribute("type");
       } else {
@@ -353,6 +371,5 @@ function isInlineHost(node: Node) {
 function assert(value: boolean, message: string): asserts value {
   console.assert(value, message);
 }
-
 
 export { writableDOM as default };
