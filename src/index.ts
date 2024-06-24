@@ -35,13 +35,28 @@ let createDocument = (
   return createDocument(target, nextSibling);
 };
 
-export = function writableDOM(
+function writableDOM(
   this: unknown,
   target: ParentNode,
-  previousSibling?: ChildNode | null
+  extraOptions?:
+    | {
+        previousSibling?: ChildNode | null;
+        scriptLoadingDocument?: Document;
+      }
+    | ChildNode
+    | null
 ): Writable | WritableStream<string> {
+  const { previousSibling, scriptLoadingDocument } =
+    extraOptions instanceof Node || extraOptions === null
+      ? { previousSibling: extraOptions, scriptLoadingDocument: document }
+      : {
+          previousSibling: null,
+          scriptLoadingDocument: document,
+          ...extraOptions,
+        };
+
   if (this instanceof writableDOM) {
-    return new WritableStream(writableDOM(target, previousSibling));
+    return new WritableStream(writableDOM(target, extraOptions));
   }
 
   const nextSibling = previousSibling ? previousSibling.nextSibling : null;
@@ -91,9 +106,11 @@ export = function writableDOM(
       if (scanNode) walker.currentNode = scanNode;
 
       while ((node = walker.nextNode())) {
-        const link = getPreloadLink((scanNode = node));
+        const link = getPreloadLink((scanNode = node), target.ownerDocument!);
         if (link) {
-          link.onload = link.onerror = () => target.removeChild(link);
+          link.onload = link.onerror = () => link.remove();
+          // TODO: this code appends links before the target container which could have unexpected consequences
+          // wouldn't it be better to use scriptLoadingDocument or some other container instead?
           target.insertBefore(link, nextSibling);
         }
       }
@@ -119,18 +136,41 @@ export = function writableDOM(
         }
 
         const parentNode = targetNodes.get(node.parentNode!)!;
+        // TODO: handle cleaning up scriptClone on abort
         targetNodes.set(node, clone);
 
         if (isInlineHost(parentNode!)) {
           inlineHostNode = parentNode;
         } else {
           appendInlineTextIfNeeded(previousPendingText, inlineHostNode);
+          if (inlineHostNode && inlineHostNode instanceof HTMLScriptElement) {
+            evalScript(inlineHostNode);
+          }
           inlineHostNode = null;
+
+          let originalScriptType = undefined;
+          if (clone instanceof HTMLScriptElement) {
+            originalScriptType = clone.getAttribute("type");
+            clone.type = "reframed-inert-script";
+          }
 
           if (parentNode === target) {
             target.insertBefore(clone, nextSibling);
           } else {
             parentNode.appendChild(clone);
+          }
+          if (clone instanceof HTMLScriptElement) {
+            // restore type so the DOM doesn't look different from the original
+            if (originalScriptType === null) {
+              clone.removeAttribute("type");
+            } else {
+              clone.type = originalScriptType!;
+            }
+
+            // eval unless it's an inline script - for those we still need to append script content
+            if (!isInlineHost(clone)) {
+              evalScript(clone);
+            }
           }
         }
 
@@ -142,13 +182,15 @@ export = function writableDOM(
       if (resolve) resolve();
     }
   }
-} as {
-  new (
-    target: ParentNode,
-    previousSibling?: ChildNode | null
-  ): WritableStream<string>;
-  (target: ParentNode, previousSibling?: ChildNode | null): Writable;
-};
+
+  function evalScript(scriptElement: HTMLElement): void {
+    const clone = scriptLoadingDocument.importNode(
+      scriptElement,
+      true
+    ) as HTMLScriptElement;
+    scriptLoadingDocument.body.appendChild(clone);
+  }
+}
 
 function isBlocking(node: any): node is HTMLElement {
   return (
@@ -167,7 +209,7 @@ function isBlocking(node: any): node is HTMLElement {
   );
 }
 
-function getPreloadLink(node: any) {
+function getPreloadLink(node: any, document: Document) {
   let link: HTMLLinkElement | undefined;
   if (node.nodeType === Node.ELEMENT_NODE) {
     switch (node.tagName) {
@@ -226,7 +268,18 @@ function appendInlineTextIfNeeded(
   inlineTextHostNode: Node | null
 ) {
   if (pendingText && inlineTextHostNode) {
-    inlineTextHostNode.appendChild(pendingText);
+    if (inlineTextHostNode instanceof HTMLScriptElement) {
+      const originalScriptType = inlineTextHostNode.getAttribute("type");
+      inlineTextHostNode.type = "reframed-inert-script";
+      inlineTextHostNode.appendChild(pendingText);
+      if (originalScriptType === null) {
+        inlineTextHostNode.removeAttribute("type");
+      } else {
+        inlineTextHostNode.type = originalScriptType!;
+      }
+    } else {
+      inlineTextHostNode.appendChild(pendingText);
+    }
   }
 }
 
@@ -237,3 +290,33 @@ function isInlineHost(node: Node) {
     tagName === "STYLE"
   );
 }
+
+// TODO: this is super ugly, and I'm not even sure it's correct, but follows the previously
+// established pattern
+type exportType = {
+  new (
+    this: unknown,
+    target: ParentNode,
+    extraOptions?:
+      | {
+          previousSibling?: ChildNode | null;
+          scriptLoadingDocument?: Document;
+        }
+      | ChildNode
+      | null
+  ): Writable | WritableStream<string>;
+  (
+    this: unknown,
+    target: ParentNode,
+    extraOptions?:
+      | {
+          previousSibling?: ChildNode | null;
+          scriptLoadingDocument?: Document;
+        }
+      | ChildNode
+      | null
+  ): Writable | WritableStream<string>;
+};
+
+const typedExport = writableDOM as exportType;
+export { typedExport as default };
