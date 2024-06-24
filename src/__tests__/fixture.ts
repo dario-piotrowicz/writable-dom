@@ -15,6 +15,7 @@ type Step = string | ((page: playwright.Page) => unknown);
 declare const __coverage__: unknown;
 declare const __track__: (html: string) => void;
 declare const writableDOM: typeof import("../index");
+// @ts-expect-error TODO
 declare let writer: ReturnType<typeof import("../index")>;
 
 let page: playwright.Page;
@@ -25,6 +26,7 @@ export default (step?: Step[] | Step) => {
   const steps = step ? (Array.isArray(step) ? step : [step]) : [];
   return async function () {
     await page.evaluate(() => {
+      // @ts-expect-error TODO
       writer = writableDOM(document.body);
     });
 

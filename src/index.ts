@@ -35,7 +35,30 @@ let createDocument = (
   return createDocument(target, nextSibling);
 };
 
-function writableDOM(
+interface writableDOMType {
+  new (
+    target: ParentNode,
+    extraOptions?:
+      | {
+          previousSibling?: ChildNode | null;
+          scriptLoadingDocument?: Document;
+        }
+      | ChildNode
+      | null
+  ): WritableStream<string>;
+  (
+    target: ParentNode,
+    extraOptions?:
+      | {
+          previousSibling?: ChildNode | null;
+          scriptLoadingDocument?: Document;
+        }
+      | ChildNode
+      | null
+  ): Writable;
+}
+
+const writableDOM: writableDOMType = function writableDOM(
   this: unknown,
   target: ParentNode,
   extraOptions?:
@@ -190,7 +213,7 @@ function writableDOM(
     ) as HTMLScriptElement;
     scriptLoadingDocument.body.appendChild(clone);
   }
-}
+} as writableDOMType;
 
 function isBlocking(node: any): node is HTMLElement {
   return (
@@ -291,32 +314,4 @@ function isInlineHost(node: Node) {
   );
 }
 
-// TODO: this is super ugly, and I'm not even sure it's correct, but follows the previously
-// established pattern
-type exportType = {
-  new (
-    this: unknown,
-    target: ParentNode,
-    extraOptions?:
-      | {
-          previousSibling?: ChildNode | null;
-          scriptLoadingDocument?: Document;
-        }
-      | ChildNode
-      | null
-  ): Writable | WritableStream<string>;
-  (
-    this: unknown,
-    target: ParentNode,
-    extraOptions?:
-      | {
-          previousSibling?: ChildNode | null;
-          scriptLoadingDocument?: Document;
-        }
-      | ChildNode
-      | null
-  ): Writable | WritableStream<string>;
-};
-
-const typedExport = writableDOM as exportType;
-export { typedExport as default };
+export { writableDOM as default };
