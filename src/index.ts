@@ -114,6 +114,10 @@ const writableDOM: writableDOMType = function writableDOM(
     close() {
       appendInlineTextIfNeeded(pendingText, inlineHostNode);
 
+      if (inlineHostNode instanceof HTMLScriptElement) {
+        evalScript(inlineHostNode);
+      }
+
       return isBlocked
         ? new Promise<void>((_) => (resolve = _))
         : Promise.resolve();
