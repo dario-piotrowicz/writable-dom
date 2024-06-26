@@ -1,6 +1,6 @@
 {
   "name": "writable-dom",
-  "description": "Utility to stream HTML content into a live document.",
+  "description": "(1) Utility to stream HTML content into a live document.",
   "version": "1.0.0",
   "author": "Dylan Piercey <dpiercey@ebay.com>",
   "bugs": "https://github.com/marko-js/writable-dom/issues",
