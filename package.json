@@ -54,19 +54,19 @@
   "scripts": {
     "build": "tsc -b && node -r esbuild-register build",
     "ci:report": "codecov",
-    "ci:test": "nyc npm run mocha -- --forbid-pending --forbid-only",
-    "format": "npm run lint:eslint -- --fix && npm run lint:prettier -- --write && (fixpack || true)",
-    "lint": "tsc -b && npm run lint:eslint && npm run lint:prettier -- -l && fixpack",
+    "ci:test": "nyc pnpm run mocha -- --forbid-pending --forbid-only",
+    "format": "pnpm run lint:eslint -- --fix && pnpm run lint:prettier -- --write && (fixpack || true)",
+    "lint": "tsc -b && pnpm run lint:eslint && pnpm run lint:prettier -- -l && fixpack",
     "lint:eslint": "eslint -f visualstudio .",
     "lint:prettier": "prettier '**/*{.ts,.js,.json,.md,.yml,rc}'",
     "mocha": "NODE_ENV=test mocha 'src/**/__tests__/*.test.ts'",
     "prepare": "husky install",
-    "postinstall": "npm run build",
-    "prepublishOnly": "npm run build",
+    "postinstall": "pnpm run build",
+    "prepublishOnly": "pnpm run build",
     "release": "semantic-release",
     "report": "open ./coverage/lcov-report/index.html",
-    "test": "npm run mocha -- --watch",
-    "test:inspect": "npm test -- --inspect",
-    "test:update": "npm run mocha -- --update"
+    "test": "pnpm run mocha -- --watch",
+    "test:inspect": "pnpm test -- --inspect",
+    "test:update": "pnpm run mocha -- --update"
   }
 }
