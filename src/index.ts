@@ -255,7 +255,7 @@ const writableDOM: writableDOMType = function writableDOM(
         Object.defineProperty(
           documentPrototype,
           "currentScript",
-          origCurrentScriptDesc
+          origCurrentScriptDesc!
         );
       };
       clone.addEventListener("load", restoreCurrentScript);
